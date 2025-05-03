@@ -8,7 +8,7 @@ public class MessengerClient {
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 
-        System.out.println(in.readLine()); // Enter username
+        System.out.println(in.readLine());
         String username = userInput.readLine();
         out.println(username);
 
