@@ -1,0 +1,124 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+
+public class ClientHandler implements Runnable {
+    private Socket socket;
+    private UserManager userManager;
+    private BufferedReader in;
+    private PrintWriter out;
+    private String username;
+
+    public ClientHandler(Socket socket, UserManager userManager) {
+        this.socket = socket;
+        this.userManager = userManager;
+    }
+
+    public void run() {
+        try {
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
+
+            out.println("Enter username:");
+            username = in.readLine();
+            out.println("Enter password:");
+            String password = in.readLine();
+
+            if (!userManager.authenticate(username, password)) {
+                out.println("Authentication failed.");
+                socket.close();
+                return;
+            }
+
+            userManager.addUser(username, this);
+            out.println("Authenticated successfully as " + username);
+
+            String clientMsg;
+            while ((clientMsg = in.readLine()) != null) {
+                if (clientMsg.startsWith("MSG ")) {
+                    String[] parts = clientMsg.split(" ", 3);
+                    if (parts.length < 3) {
+                        out.println("Invalid command format. Usage: MSG <user> <message>");
+                        continue;
+                    }
+                    String recipient = parts[1];
+                    String message = parts[2];
+                    User target = userManager.getUser(recipient);
+                    if (target != null) {
+                        target.sendMessage("[" + username + "] " + message);
+                    } else {
+                        out.println("User '" + recipient + "' not online.");
+                    }
+                } else if (clientMsg.startsWith("FILE ")) {
+                    String[] parts = clientMsg.split(" ", 3);
+                    if (parts.length < 3) {
+                        out.println("Invalid FILE command. Usage: FILE <recipient> <filePath>");
+                        continue;
+                    }
+                    String recipient = parts[1];
+                    String filePath = parts[2];
+
+                    User targetUser = userManager.getUser(recipient);
+                    if (targetUser == null) {
+                        out.println("User '" + recipient + "' not online.");
+                        continue;
+                    }
+
+                    targetUser.sendMessage("INCOMING_FILE " + username + " " + filePath);
+                    out.println("Instructed " + recipient + " to prepare for file transfer.");
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("[Server] Client disconnected: " + username);
+        } finally {
+            try {
+                userManager.removeUser(username);
+                socket.close();
+            } catch (IOException e) {
+                System.out.println("[Server] Error closing client socket.");
+            }
+        }
+    }
+
+    public void sendMessage(String msg) {
+        out.println(msg);
+    }
+}
+Collapse
+ClientHandler.java
+4 KB
+import java.io.*;
+import java.net.*;
+
+class FileTransferHandler {
+    public static void sendFile(Socket socket, String filePath) throws IOException {
+        File file = new File(filePath);
+Expand
+FileTransferHandler.java
+2 KB
+import java.io.*;
+import java.net.*;
+//MAIN METHOD
+public class MessengerClient {
+    public static void main(String[] args) throws Exception {
+        Socket socket = new Socket("localhost", 6789);
+Expand
+MessengerClient.java
+3 KB
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class MessengerServer {
+    private static final int PORT = 6789;
+Expand
+MessengerServer.java
+1 KB
+public class User {
+    private String username;
+    private ClientHandler handler;
+
+    public User(String username, ClientHandler handler) {
+        this.username = username;
