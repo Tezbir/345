@@ -1,0 +1,28 @@
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+public class UserManager {
+    private Map<String, User> onlineUsers = Collections.synchronizedMap(new HashMap<>());
+    private Map<String, String> credentials = Map.of(
+            "alice", "pass1",
+            "bob", "pass2",
+            "charlie", "pass3"
+    );
+
+    public boolean authenticate(String username, String password) {
+        return credentials.containsKey(username) && credentials.get(username).equals(password);
+    }
+
+    public void addUser(String username, ClientHandler handler) {
+        onlineUsers.put(username, new User(username, handler));
+    }
+
+    public void removeUser(String username) {
+        onlineUsers.remove(username);
+    }
+
+    public User getUser(String username) {
+        return onlineUsers.get(username);
+    }
+}
