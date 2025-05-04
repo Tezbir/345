@@ -1,0 +1,116 @@
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class Server {
+    private static final int PORT = 12345;
+    private static final Map<String, String> userDB = new HashMap<>();
+    private static final Map<String, ClientHandler> clients = new HashMap<>();
+
+    public static void main(String[] args) throws IOException {
+        userDB.put("user1", "pass1");
+        userDB.put("user2", "pass2");
+
+        ServerSocket serverSocket = new ServerSocket(PORT);
+        System.out.println("Server started on port " + PORT);
+
+        while (true) {
+            Socket socket = serverSocket.accept();
+            new Thread(new ClientHandler(socket)).start();
+        }
+    }
+
+    static class ClientHandler implements Runnable {
+        private Socket socket;
+        private String username;
+        private PrintWriter out;
+        private BufferedReader in;
+
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
+        }
+
+        public void run() {
+            try {
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                out = new PrintWriter(socket.getOutputStream(), true);
+
+                // Authentication
+                out.println("Enter username:");
+                String user = in.readLine();
+                out.println("Enter password:");
+                String pass = in.readLine();
+
+                if (userDB.containsKey(user) && userDB.get(user).equals(pass)) {
+                    out.println("Authenticated");
+                    this.username = user;
+                    clients.put(username, this);
+                    broadcast("[" + username + "] has joined.");
+
+                    String line;
+                    while ((line = in.readLine()) != null) {
+                        if (line.startsWith("/msg ")) {
+                            String[] parts = line.split(" ", 3);
+                            if (parts.length == 3) {
+                                sendPrivateMessage(parts[1], "[" + username + "]: " + parts[2]);
+                            }
+                        } else if (line.startsWith("/file ")) {
+                            receiveFile(line);
+                        } else {
+                            broadcast("[" + username + "]: " + line);
+                        }
+                    }
+                } else {
+                    out.println("Authentication Failed");
+                    socket.close();
+                }
+            } catch (IOException e) {
+                System.out.println("Client disconnected.");
+            } finally {
+                if (username != null) {
+                    clients.remove(username);
+                    broadcast("[" + username + "] has left.");
+                }
+            }
+        }
+
+        private void broadcast(String message) {
+            for (ClientHandler client : clients.values()) {
+                client.out.println(message);
+            }
+        }
+
+        private void sendPrivateMessage(String toUser, String message) {
+            ClientHandler client = clients.get(toUser);
+            if (client != null) {
+                client.out.println(message);
+            } else {
+                out.println("User not found.");
+            }
+        }
+
+        private void receiveFile(String command) throws IOException {
+            String[] parts = command.split(" ");
+            if (parts.length < 3) return;
+
+            String toUser = parts[1];
+            String fileName = parts[2];
+            int fileSize = Integer.parseInt(in.readLine());
+
+            byte[] buffer = new byte[fileSize];
+            InputStream is = socket.getInputStream();
+            is.read(buffer, 0, fileSize);
+
+            ClientHandler recipient = clients.get(toUser);
+            if (recipient != null) {
+                OutputStream os = recipient.socket.getOutputStream();
+                recipient.out.println("/file " + username + " " + fileName);
+                recipient.out.println(String.valueOf(fileSize));
+                os.write(buffer, 0, fileSize);
+                os.flush();
+            } else {
+                out.println("Recipient not online.");
+            }
+        }
+    }
+}
