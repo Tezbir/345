@@ -1,0 +1,71 @@
+import java.io.*;
+import java.net.*;
+
+public class Client {
+    private static final String SERVER = "localhost";
+    private static final int PORT = 12345;
+
+    public static void main(String[] args) throws IOException {
+        Socket socket = new Socket(SERVER, PORT);
+        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
+
+        // Authentication
+        System.out.println(in.readLine());
+        out.println(userInput.readLine());
+        System.out.println(in.readLine());
+        out.println(userInput.readLine());
+
+        String response = in.readLine();
+        if (!response.equals("Authenticated")) {
+            System.out.println(response);
+            return;
+        }
+
+        // Thread to read server messages
+        new Thread(() -> {
+            try {
+                String line;
+                while ((line = in.readLine()) != null) {
+                    System.out.println(line);
+                }
+            } catch (IOException e) {
+                System.out.println("Disconnected from server.");
+            }
+        }).start();
+
+        // Send user input to server
+        String input;
+        while ((input = userInput.readLine()) != null) {
+            if (input.startsWith("/sendfile ")) {
+                String[] parts = input.split(" ", 3);
+                if (parts.length == 3) {
+                    sendFile(parts[1], parts[2], socket);
+                }
+            } else {
+                out.println(input);
+            }
+        }
+    }
+
+    private static void sendFile(String recipient, String path, Socket socket) {
+        try {
+            File file = new File(path);
+            byte[] data = new byte[(int) file.length()];
+            FileInputStream fis = new FileInputStream(file);
+            fis.read(data);
+            fis.close();
+
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out.println("/file " + recipient + " " + file.getName());
+            out.println(data.length);
+            socket.getOutputStream().write(data);
+            socket.getOutputStream().flush();
+
+            System.out.println("File sent.");
+        } catch (IOException e) {
+            System.out.println("Error sending file: " + e.getMessage());
+        }
+    }
+}
