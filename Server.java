@@ -1,72 +1,58 @@
-import java.io.IOException;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-public class Server implements Runnable {
-    private ArrayList<ConnectionHandler> connections;
-    private ServerSocket server;
-    private boolean done;
-    private ExecutorService pool;
-    public ArrayList<ConnectionHandler> getConnections() {
-        return connections;
-    }
+public class Server {
+    public static void main(String[] args) throws IOException {
 
-    public Server() {
-        connections = new ArrayList<>();
-        done = false;
-    }
+        Socket socket = null;
+        InputStreamReader isr = null;
+        OutputStreamWriter osw = null;
+        BufferedReader br = null;
+        BufferedWriter bw = null;
+        ServerSocket serverSocket = null;
 
-    @Override
-    public void run() {
-        try {
-            server = new ServerSocket(9999);
-            pool = Executors.newCachedThreadPool();
-            System.out.println("Server started on port 9999...");
+        serverSocket = new ServerSocket(1234);
 
-            while (!done) {
-                Socket client = server.accept();
-                ConnectionHandler handler = new ConnectionHandler(client, this); // You need to pass Server reference
-                connections.add(handler);
-                pool.execute(handler);
+        while (true) {
+
+            try {
+
+                socket = ServerSocket.accept();
+
+                isr = new InputStreamReader(socket.getInputStream());
+                osw = new OutputStreamWriter(socket.getOutputStream());
+
+                br = new BufferedReader(isr);
+                bw = new BufferedWriter(osw);
+
+                while (true) {
+
+                    String msgFromClient = br.readLine();
+
+                    System.out.println("Client: " + msgFromClient);
+
+                    bw.write("MSG Recieved.");
+                    bw.newLine();
+                    bw.flush();
+
+                    if (msgFromClient.equalsIgnoreCase("END"))
+                        break;
+                }
+            socket.close();
+            isr.close();
+            osw.close();
+            br.close();
+            br.close();
+
+
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        } catch (IOException e) {
-            shutdown(); // Graceful shutdown on exception
         }
-    }
-
-    public void broadcast(String message) {
-        for (ConnectionHandler ch : connections) {
-            if (ch != null) {
-                ch.sendMessage(message);
-            }
-        }
-    }
-
-    public void shutdown() {
-        done = true;
-        try {
-            if (server != null && !server.isClosed()) {
-                server.close();
-            }
-            for (ConnectionHandler ch : connections) {
-                ch.shutdown();
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        if (pool != null && !pool.isShutdown()) {
-            pool.shutdown();
-        }
-    }
-
-    public static void main(String[] args) {
-        Server server = new Server();
-        new Thread(server).start();
-    }
 
     }
+}
+
     
 
