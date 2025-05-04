@@ -2,8 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
-public class Server {
-    private static final int PORT = 12345;
+public class Server {//run this file first, then the other one
+    private static final int PORT = 4567;
     private static final Map<String, String> userDB = new HashMap<>();
     private static final Map<String, ClientHandler> clients = new HashMap<>();
 
@@ -23,8 +23,8 @@ public class Server {
     static class ClientHandler implements Runnable {
         private Socket socket;
         private String username;
-        private PrintWriter out;
-        private BufferedReader in;
+        private DataInputStream in;
+        private DataOutputStream out;
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
@@ -32,36 +32,37 @@ public class Server {
 
         public void run() {
             try {
-                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                out = new PrintWriter(socket.getOutputStream(), true);
+                in = new DataInputStream(socket.getInputStream());
+                out = new DataOutputStream(socket.getOutputStream());
 
-                // Authentication
-                out.println("Enter username:");
-                String user = in.readLine();
-                out.println("Enter password:");
-                String pass = in.readLine();
+                sendLine("Enter username:");
+                String user = readLine();
+                sendLine("Enter password:");
+                String pass = readLine();
 
                 if (userDB.containsKey(user) && userDB.get(user).equals(pass)) {
-                    out.println("Authenticated");
+                    sendLine("Authenticated");
                     this.username = user;
                     clients.put(username, this);
                     broadcast("[" + username + "] has joined.");
 
-                    String line;
-                    while ((line = in.readLine()) != null) {
-                        if (line.startsWith("/msg ")) {
+                    while (true) {
+                        String line = readLine();
+                        if (line == null) break;
+
+                        if (line.startsWith("/file ")) {
+                            receiveFile(line);
+                        } else if (line.startsWith("/msg ")) {
                             String[] parts = line.split(" ", 3);
                             if (parts.length == 3) {
                                 sendPrivateMessage(parts[1], "[" + username + "]: " + parts[2]);
                             }
-                        } else if (line.startsWith("/file ")) {
-                            receiveFile(line);
                         } else {
                             broadcast("[" + username + "]: " + line);
                         }
                     }
                 } else {
-                    out.println("Authentication Failed");
+                    sendLine("Authentication Failed");
                     socket.close();
                 }
             } catch (IOException e) {
@@ -76,16 +77,20 @@ public class Server {
 
         private void broadcast(String message) {
             for (ClientHandler client : clients.values()) {
-                client.out.println(message);
+                try {
+                    client.sendLine(message);
+                } catch (IOException e) {
+                    // ignore
+                }
             }
         }
 
-        private void sendPrivateMessage(String toUser, String message) {
+        private void sendPrivateMessage(String toUser, String message) throws IOException {
             ClientHandler client = clients.get(toUser);
             if (client != null) {
-                client.out.println(message);
+                client.sendLine(message);
             } else {
-                out.println("User not found.");
+                sendLine("User not found.");
             }
         }
 
@@ -95,22 +100,30 @@ public class Server {
 
             String toUser = parts[1];
             String fileName = parts[2];
-            int fileSize = Integer.parseInt(in.readLine());
-
+            int fileSize = in.readInt();
             byte[] buffer = new byte[fileSize];
-            InputStream is = socket.getInputStream();
-            is.read(buffer, 0, fileSize);
+            in.readFully(buffer);
 
             ClientHandler recipient = clients.get(toUser);
             if (recipient != null) {
-                OutputStream os = recipient.socket.getOutputStream();
-                recipient.out.println("/file " + username + " " + fileName);
-                recipient.out.println(String.valueOf(fileSize));
-                os.write(buffer, 0, fileSize);
-                os.flush();
+                recipient.sendLine("/file " + username + " " + fileName);
+                recipient.out.writeInt(fileSize);
+                recipient.out.write(buffer);
+                recipient.out.flush();
+                sendLine("File sent to " + toUser);
             } else {
-                out.println("Recipient not online.");
+                sendLine("Recipient not online.");
             }
         }
+
+        private void sendLine(String line) throws IOException {
+            out.writeUTF(line);
+        }
+
+        private String readLine() throws IOException {
+            return in.readUTF();
+        }
+        
     }
 }
+
