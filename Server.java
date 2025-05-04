@@ -10,6 +10,9 @@ public class Server implements Runnable {
     private ServerSocket server;
     private boolean done;
     private ExecutorService pool;
+    public ArrayList<ConnectionHandler> getConnections() {
+        return connections;
+    }
 
     public Server() {
         connections = new ArrayList<>();
@@ -63,4 +66,7 @@ public class Server implements Runnable {
         Server server = new Server();
         new Thread(server).start();
     }
-}
+
+    }
+    
+
