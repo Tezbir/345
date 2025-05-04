@@ -8,6 +8,35 @@ public class MessengerClient {
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
         BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 
+
+
+         Database.initialize();
+        Scanner scanner = new Scanner(System.in);
+
+        System.out.println("1. Register\n2. Login");
+        String choice = scanner.nextLine();
+
+        System.out.print("Username: ");
+        String username = scanner.nextLine();
+        System.out.print("Password: ");
+        String password = scanner.nextLine();
+
+        if (choice.equals("1")) {
+            AuthService.register(username, password);
+        } else if (choice.equals("2")) {
+            boolean success = AuthService.login(username, password);
+            if (success) {
+                System.out.println("Login successful. Welcome back, " + username + "!");
+            } else {
+                System.out.println("Login failed.");
+            }
+        } else {
+            System.out.println("Invalid choice.");
+        }
+
+        scanner.close();
+
+//---------------
         System.out.println(in.readLine());
         String username = userInput.readLine();
         out.println(username);
@@ -15,7 +44,7 @@ public class MessengerClient {
         System.out.println(in.readLine()); // Enter password
         String password = userInput.readLine();
         out.println(password);
-
+//--------------------
         String authResponse = in.readLine();
         System.out.println(authResponse);
         if (!authResponse.startsWith("Authenticated")) {
