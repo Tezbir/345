@@ -1,3 +1,5 @@
+package mychat.app
+
 public class User {
     private String username;
     private ClientHandler handler;
