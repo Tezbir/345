@@ -3,69 +3,84 @@ import java.net.*;
 
 public class Client {
     private static final String SERVER = "localhost";
-    private static final int PORT = 12345;
+    private static final int PORT = 4567;
 
     public static void main(String[] args) throws IOException {
         Socket socket = new Socket(SERVER, PORT);
-        BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+        DataInputStream in = new DataInputStream(socket.getInputStream());
+        DataOutputStream out = new DataOutputStream(socket.getOutputStream());
         BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 
-        // Authentication
-        System.out.println(in.readLine());
-        out.println(userInput.readLine());
-        System.out.println(in.readLine());
-        out.println(userInput.readLine());
+        System.out.println(in.readUTF());
+        out.writeUTF(userInput.readLine());
+        System.out.println(in.readUTF());
+        out.writeUTF(userInput.readLine());
 
-        String response = in.readLine();
+        String response = in.readUTF();
         if (!response.equals("Authenticated")) {
             System.out.println(response);
+            socket.close();
             return;
         }
 
-        // Thread to read server messages
+        // Thread to read messages
         new Thread(() -> {
             try {
-                String line;
-                while ((line = in.readLine()) != null) {
-                    System.out.println(line);
+                while (true) {
+                    String line = in.readUTF();
+                    if (line.startsWith("/file ")) {
+                        String[] parts = line.split(" ", 3);
+                        String sender = parts[1];
+                        String fileName = parts[2];
+                        int fileSize = in.readInt();
+                        byte[] buffer = new byte[fileSize];
+                        in.readFully(buffer);
+
+                        FileOutputStream fos = new FileOutputStream("received_" + fileName);
+                        fos.write(buffer);
+                        fos.close();
+
+                        System.out.println("Received file '" + fileName + "' from " + sender);
+                    } else {
+                        System.out.println(line);
+                    }
                 }
             } catch (IOException e) {
                 System.out.println("Disconnected from server.");
             }
         }).start();
 
-        // Send user input to server
+        // Send messages or files
         String input;
         while ((input = userInput.readLine()) != null) {
             if (input.startsWith("/sendfile ")) {
                 String[] parts = input.split(" ", 3);
                 if (parts.length == 3) {
-                    sendFile(parts[1], parts[2], socket);
+                    sendFile(parts[1], parts[2], out);
                 }
             } else {
-                out.println(input);
+                out.writeUTF(input);
             }
         }
     }
 
-    private static void sendFile(String recipient, String path, Socket socket) {
+    private static void sendFile(String recipient, String filePath, DataOutputStream out) {
         try {
-            File file = new File(path);
-            byte[] data = new byte[(int) file.length()];
+            File file = new File(filePath);
             FileInputStream fis = new FileInputStream(file);
+            byte[] data = new byte[(int) file.length()];
             fis.read(data);
             fis.close();
 
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            out.println("/file " + recipient + " " + file.getName());
-            out.println(data.length);
-            socket.getOutputStream().write(data);
-            socket.getOutputStream().flush();
+            out.writeUTF("/file " + recipient + " " + file.getName());
+            out.writeInt(data.length);
+            out.write(data);
+            out.flush();
 
             System.out.println("File sent.");
         } catch (IOException e) {
             System.out.println("Error sending file: " + e.getMessage());
         }
+        
     }
 }
