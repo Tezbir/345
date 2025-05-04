@@ -1,88 +1,63 @@
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.net.Socket;
+import java.util.Scanner;
 
-public class Client implements Runnable {
-    private Socket client;
-    private BufferedReader serverIn;
-    private PrintWriter serverOut;
-    private boolean done = false;
-    private DataInputStream dataIn;
+public class Client {
+	public static void main(String[]args) {
+		
+		Socket socket = null;
+		InputStreamReader inputstreamreader = null;
+		OutputStreamwriter outputStreamwriter = null;
+		BufferedReader bufferedReader= null;
+		Bufferedwriter = null;
+		
+		try {
+			socket= new Socket("local host, 1234");
+			
+			inputStreamReader = new InputStreamReader(socket.getInputStream());
+			outputStreamwriter= new OutputStreamWriter(socket.getOption());
+			
+			bufferedReader = new BuffereedReader(inputStreamreader);
+			bufferedwriter= new Bufferedwriter(outputStreamwriter);
+			
+			Scanner scanner = new Scanner(System.in);
+			
+			while(true) {
+				String msgToSend = scanner.nextLine();
+				
+				BufferedWriter.nullWriter(msgToSend);
+				bufferedWriter.newLine();
+				bufferedwriter.flush();
+				
+				System.out.println("Server: ")+bufferedReader.readLine();
+				
+				if(msgToSend.equals.IgnoreCase("QUIT"))
+					break;
+				
+			}
+			catch(IOException e) {
+				e.printStackTrace();
+			}finally {
+				try
+				if (socket!= null)
+					socket.close();
+				if (inputstreamReader != null)
+			inputstreamReader.close();		
+						if (inputstreamReader != null)
+							inputstreamReader.close();	
+						if (outputstreamReader!= null)
+							outstreamReader.close();
+						if (bufferedReader!= null)
+							bufferedReader.close();
+						if (bufferedWriter!= null)
+							bufferedWriter.close();
+			}
+			catch(IOException e) {
+				e.printStackTrace();
+			}
+			
+		}
+	}
 
-    @Override
-    public void run() {
-        try {
-            client = new Socket("127.0.0.1", 9999);
-            serverOut = new PrintWriter(client.getOutputStream(), true);
-            serverIn = new BufferedReader(new InputStreamReader(client.getInputStream()));
-            dataIn = new DataInputStream(client.getInputStream());
-
-            BufferedReader console = new BufferedReader(new InputStreamReader(System.in));
-
-            System.out.print("Enter your nickname: ");
-            String nickname = console.readLine();
-            serverOut.println(nickname); // sent once
-
-            // Start input handler to send messages
-            new Thread(new InputHandler(serverOut, this)).start();
-
-            // Read messages from server
-            String line;
-            while ((line = serverIn.readLine()) != null) {
-                if (line.startsWith("/file")) {
-                    receiveFile(line);
-                } else {
-                    System.out.println(line);
-                }
-            }
-        } catch (IOException e) {
-            shutdown();
-        }
-    }
-
-    private void receiveFile(String header) {
-        try {
-            String[] parts = header.split(" ", 3);
-            String filename = parts[1];
-            long fileSize = Long.parseLong(parts[2]);
-
-            FileOutputStream fos = new FileOutputStream("received_" + filename);
-            byte[] buffer = new byte[4096];
-            int bytesRead;
-            long remaining = fileSize;
-
-            while (remaining > 0 &&
-                    (bytesRead = dataIn.read(buffer, 0, (int) Math.min(buffer.length, remaining))) != -1) {
-                fos.write(buffer, 0, bytesRead);
-                remaining -= bytesRead;
-            }
-            fos.close();
-            System.out.println("File received: " + filename);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void shutdown() {
-        done = true;
-        try {
-            if (serverIn != null) serverIn.close();
-            if (serverOut != null) serverOut.close();
-            if (client != null) client.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public boolean isDone() {
-        return done;
-    }
-
-    public OutputStream getOutputStream() throws IOException {
-        return client.getOutputStream();
-    }
-
-    public static void main(String[] args) {
-        new Thread(new Client()).start();
-    }
 }
-
