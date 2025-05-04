@@ -22,9 +22,8 @@ public class ConnectionHandler implements Runnable {
         try {
             out = new PrintWriter(client.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-            out.println("Enter a nickname:");
-            nickname = in.readLine();
-            System.out.println(nickname + " connected");
+            nickname = in.readLine(); 
+            System.out.println(nickname + " connected"); 
 
             String message;
             while ((message = in.readLine()) != null) {
@@ -33,7 +32,7 @@ public class ConnectionHandler implements Runnable {
                     break;
                 }
                 System.out.println(nickname + ": " + message);
-                server.broadcast(nickname + ": " + message); // <-- Use broadcast
+                server.broadcast(nickname + ": " + message);
             }
 
         } catch (IOException e) {
