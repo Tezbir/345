@@ -16,15 +16,35 @@ public class Client implements Runnable {
 
             InputHandler handler = new InputHandler(out, this);
             new Thread(handler).start();
-
             String inMessage;
             while ((inMessage = in.readLine()) != null) {
-                System.out.println(inMessage);
+                if (inMessage.startsWith("/file")) {
+                    handleIncomingFile(inMessage);
+                } else {
+                    System.out.println(inMessage);
+                }
+            
             }
-        } catch (IOException e) {
-            shutdown();
-        }
-    }
+            private void handleIncomingFile(String command) {
+                try {
+                    String[] parts = command.split(" ", 3);
+                    String filename = parts[1];
+                    long fileSize = Long.parseLong(parts[2]);
+
+                    DataInputStream dataIn = new DataInputStream(client.getInputStream());
+                    byte[] buffer = new byte[(int) fileSize];
+                    dataIn.readFully(buffer);
+
+                    FileOutputStream fos = new FileOutputStream("received_" + filename);
+                    fos.write(buffer);
+                    fos.close();
+
+                    System.out.println("File received: " + filename);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
 
     public void shutdown() {
         done = true;
