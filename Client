@@ -3,7 +3,7 @@ import java.net.*;
 
 public class Client {
     private static final String SERVER = "localhost";
-    private static final int PORT = 4567;
+    private static final int PORT = 4588;
 
     public static void main(String[] args) throws IOException {
         Socket socket = new Socket(SERVER, PORT);
@@ -23,7 +23,9 @@ public class Client {
             return;
         }
 
-        // Thread to read messages
+        System.out.println("Connected to chat. Type /quit to exit.");
+
+        // Thread to read incoming messages
         new Thread(() -> {
             try {
                 while (true) {
@@ -50,10 +52,15 @@ public class Client {
             }
         }).start();
 
-        // Send messages or files
+        // Sending messages
         String input;
         while ((input = userInput.readLine()) != null) {
-            if (input.startsWith("/sendfile ")) {
+            if (input.equalsIgnoreCase("/quit")) {
+                out.writeUTF("/quit");
+                socket.close();
+                System.out.println("You have left the chat.");
+                break;
+            } else if (input.startsWith("/sendfile ")) {
                 String[] parts = input.split(" ", 3);
                 if (parts.length == 3) {
                     sendFile(parts[1], parts[2], out);
@@ -81,6 +88,6 @@ public class Client {
         } catch (IOException e) {
             System.out.println("Error sending file: " + e.getMessage());
         }
-        
     }
 }
+
