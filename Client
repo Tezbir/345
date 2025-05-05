@@ -2,8 +2,8 @@ import java.io.*;
 import java.net.*;
 
 public class Client {
-    private static final String SERVER = "localhost";
-    private static final int PORT = 4588;
+    private static final String SERVER = "64.187.250.214"; // Change this to the server's IP if needed
+    private static final int PORT = 4587;
 
     public static void main(String[] args) throws IOException {
         Socket socket = new Socket(SERVER, PORT);
@@ -11,9 +11,11 @@ public class Client {
         DataOutputStream out = new DataOutputStream(socket.getOutputStream());
         BufferedReader userInput = new BufferedReader(new InputStreamReader(System.in));
 
-        System.out.println(in.readUTF());
+        // Login
+        System.out.println(in.readUTF()); // "Enter username:"
         out.writeUTF(userInput.readLine());
-        System.out.println(in.readUTF());
+
+        System.out.println(in.readUTF()); // "Enter password:"
         out.writeUTF(userInput.readLine());
 
         String response = in.readUTF();
@@ -25,7 +27,7 @@ public class Client {
 
         System.out.println("Connected to chat. Type /quit to exit.");
 
-        // Thread to read incoming messages
+        // Receiving messages
         new Thread(() -> {
             try {
                 while (true) {
@@ -64,6 +66,8 @@ public class Client {
                 String[] parts = input.split(" ", 3);
                 if (parts.length == 3) {
                     sendFile(parts[1], parts[2], out);
+                } else {
+                    System.out.println("Usage: /sendfile [recipient] [filepath]");
                 }
             } else {
                 out.writeUTF(input);
@@ -90,4 +94,3 @@ public class Client {
         }
     }
 }
-
