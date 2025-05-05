@@ -2,142 +2,141 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 
-public class Server {//run this file first, then the other one
-	
-	
-	    private static final int PORT = 4587;
-	    private static final Map<String, String> userDB = new HashMap<>();
-	    private static final Map<String, ClientHandler> clients = Collections.synchronizedMap(new HashMap<>());
+public class Server {   //run this file first, then the other one
 
-	    public static void main(String[] args) throws IOException {
-	        userDB.put("user1", "pass1");
-	        userDB.put("user2", "pass2");
 
-	        ServerSocket serverSocket = new ServerSocket(PORT);
-	        System.out.println("Server started on port " + PORT);
+    private static final int PORT = 4587;
+    private static final Map<String, String> userDB = new HashMap<>();
+    private static final Map<String, ClientHandler> clients = Collections.synchronizedMap(new HashMap<>());
 
-	        while (true) {
-	            Socket socket = serverSocket.accept();
-	            new Thread(new ClientHandler(socket)).start();
-	        }
-	    }
+    public static void main(String[] args) throws IOException {
+        userDB.put("user1", "pass1");
+        userDB.put("user2", "pass2");
 
-	    static class ClientHandler implements Runnable {
-	        private Socket socket;
-	        private String username;
-	        private DataInputStream in;
-	        private DataOutputStream out;
+        ServerSocket serverSocket = new ServerSocket(PORT);
+        System.out.println("Server started on port " + PORT);
 
-	        public ClientHandler(Socket socket) {
-	            this.socket = socket;
-	        }
+        while (true) {
+            Socket socket = serverSocket.accept();
+            new Thread(new ClientHandler(socket)).start();
+        }
+    }
 
-	        public void run() {
-	            try {
-	                in = new DataInputStream(socket.getInputStream());
-	                out = new DataOutputStream(socket.getOutputStream());
+    static class ClientHandler implements Runnable {
+        private Socket socket;
+        private String username;
+        private DataInputStream in;
+        private DataOutputStream out;
 
-	                sendLine("Enter username:");
-	                String user = readLine();
-	                sendLine("Enter password:");
-	                String pass = readLine();
+        public ClientHandler(Socket socket) {
+            this.socket = socket;
+        }
 
-	                if (userDB.containsKey(user) && userDB.get(user).equals(pass)) {
-	                    this.username = user;
-	                    clients.put(username, this);
-	                    sendLine("Authenticated");
-	                    broadcast("[" + username + "] has joined.");
-	                    System.out.println(username + " connected.");
+        public void run() {
+            try {
+                in = new DataInputStream(socket.getInputStream());
+                out = new DataOutputStream(socket.getOutputStream());
 
-	                    while (true) {
-	                        String line = readLine();
-	                        if (line == null || line.equalsIgnoreCase("/quit")) {
-	                            break;
-	                        }
+                sendLine("Enter username:");
+                String user = readLine();
+                sendLine("Enter password:");
+                String pass = readLine();
 
-	                        if (line.startsWith("/file ")) {
-	                            receiveFile(line);
-	                        } else if (line.startsWith("/msg ")) {
-	                            String[] parts = line.split(" ", 3);
-	                            if (parts.length == 3) {
-	                                sendPrivateMessage(parts[1], "[" + username + "]: " + parts[2]);
-	                            }
-	                        } else {
-	                            broadcast("[" + username + "]: " + line);
-	                        }
-	                    }
-	                } else {
-	                    sendLine("Authentication Failed");
-	                    socket.close();
-	                }
-	            } catch (IOException e) {
-	                System.out.println("Connection with " + username + " lost.");
-	            } finally {
-	                try {
-	                    if (username != null) {
-	                        clients.remove(username);
-	                       
-	                        System.out.println(username + " disconnected.");
-	                        broadcast("[" + username + "] has left.");
+                if (userDB.containsKey(user) && userDB.get(user).equals(pass)) {
+                    this.username = user;
+                    clients.put(username, this);
+                    sendLine("Authenticated");
+                    broadcast("[" + username + "] has joined.");
+                    System.out.println(username + " connected.");
 
-	                    }
-	                    socket.close();
-	                } catch (IOException e) {
-	                    // ignore
-	                }
-	            }
-	        }
+                    while (true) {
+                        String line = readLine();
+                        if (line == null || line.equalsIgnoreCase("/quit")) {
+                            break;
+                        }
 
-	        private void broadcast(String message) {
-	            synchronized (clients) {
-	                for (ClientHandler client : clients.values()) {
-	                    try {
-	                        client.sendLine(message);
-	                    } catch (IOException e) {
-	                        // could log and remove client
-	                    }
-	                }
-	            }
-	        }
+                        if (line.startsWith("/file ")) {
+                            receiveFile(line);
+                        } else if (line.startsWith("/msg ")) {
+                            String[] parts = line.split(" ", 3);
+                            if (parts.length == 3) {
+                                sendPrivateMessage(parts[1], "[" + username + "]: " + parts[2]);
+                            }
+                        } else {
+                            broadcast("[" + username + "]: " + line);
+                        }
+                    }
+                } else {
+                    sendLine("Authentication Failed");
+                    socket.close();
+                }
+            } catch (IOException e) {
+                System.out.println("Connection with " + username + " lost.");
+            } finally {
+                try {
+                    if (username != null) {
+                        clients.remove(username);
 
-	        private void sendPrivateMessage(String toUser, String message) throws IOException {
-	            ClientHandler client = clients.get(toUser);
-	            if (client != null) {
-	                client.sendLine(message);
-	            } else {
-	                sendLine("User not found.");
-	            }
-	        }
+                        System.out.println(username + " disconnected.");
+                        broadcast("[" + username + "] has left.");
 
-	        private void receiveFile(String command) throws IOException {
-	            String[] parts = command.split(" ");
-	            if (parts.length < 3) return;
+                    }
+                    socket.close();
+                } catch (IOException e) {
+                    // ignore
+                }
+            }
+        }
 
-	            String toUser = parts[1];
-	            String fileName = parts[2];
-	            int fileSize = in.readInt();
-	            byte[] buffer = new byte[fileSize];
-	            in.readFully(buffer);
+        private void broadcast(String message) {
+            synchronized (clients) {
+                for (ClientHandler client : clients.values()) {
+                    try {
+                        client.sendLine(message);
+                    } catch (IOException e) {
+                        // could log and remove client
+                    }
+                }
+            }
+        }
 
-	            ClientHandler recipient = clients.get(toUser);
-	            if (recipient != null) {
-	                recipient.sendLine("/file " + username + " " + fileName);
-	                recipient.out.writeInt(fileSize);
-	                recipient.out.write(buffer);
-	                recipient.out.flush();
-	                sendLine("File sent to " + toUser);
-	            } else {
-	                sendLine("Recipient not online.");
-	            }
-	        }
+        private void sendPrivateMessage(String toUser, String message) throws IOException {
+            ClientHandler client = clients.get(toUser);
+            if (client != null) {
+                client.sendLine(message);
+            } else {
+                sendLine("User not found.");
+            }
+        }
 
-	        private void sendLine(String line) throws IOException {
-	            out.writeUTF(line);
-	        }
+        private void receiveFile(String command) throws IOException {
+            String[] parts = command.split(" ");
+            if (parts.length < 3) return;
 
-	        private String readLine() throws IOException {
-	            return in.readUTF();
-	        }
-	    }
-	}
+            String toUser = parts[1];
+            String fileName = parts[2];
+            int fileSize = in.readInt();
+            byte[] buffer = new byte[fileSize];
+            in.readFully(buffer);
 
+            ClientHandler recipient = clients.get(toUser);
+            if (recipient != null) {
+                recipient.sendLine("/file " + username + " " + fileName);
+                recipient.out.writeInt(fileSize);
+                recipient.out.write(buffer);
+                recipient.out.flush();
+                sendLine("File sent to " + toUser);
+            } else {
+                sendLine("Recipient not online.");
+            }
+        }
+
+        private void sendLine(String line) throws IOException {
+            out.writeUTF(line);
+        }
+
+        private String readLine() throws IOException {
+            return in.readUTF();
+        }
+    }
+}
